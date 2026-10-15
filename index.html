@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <title>Klubbens Tennis Rangliste</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f4f7f6;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 600px;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+    }
+    th {
+      background-color: #27ae60;
+      color: white;
+      font-weight: bold;
+    }
+    tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+    .rank {
+      font-weight: bold;
+      width: 50px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎾 Klubbens Tennis Rangliste</h1>
+  
+  <table id="rangliste">
+    <thead>
+      <tr>
+        <th class="rank">#</th>
+        <th>Spiller</th>
+        <th>Point</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="3">Henter data...</td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    // INDSÆT DIT PUBLICEREDE CSV-LINK HER
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-DIN-DIT-ID-HER/pub?output=csv';
+
+    async function hentRangliste() {
+      try {
+        const response = await fetch(CSV_URL);
+        const data = await response.text();
+
+        // Split CSV i rækker
+        const rows = data.trim().split('\n').map(row => row.split(','));
+
+        // Fjern overskrifter (første række i arket)
+        const header = rows.shift(); 
+        
+        // Sorter eventuelt efter point (antaget at Point er i kolonne 2 / index 1)
+        // rows.sort((a, b) => parseFloat(b[1]) - parseFloat(a[1]));
+
+        const tbody = document.querySelector('#rangliste tbody');
+        tbody.innerHTML = ''; // Tøm "Henter data..."
+
+        rows.forEach((row, index) => {
+          const spillerNavn = row[0]?.trim();
+          const point = row[1]?.trim();
+
+          if (spillerNavn) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="rank">${index + 1}</td>
+              <td>${spillerNavn}</td>
+              <td><strong>${point}</strong></td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+      } catch (error) {
+        console.error('Fejl ved hentning af data:', error);
+        document.querySelector('#rangliste tbody').innerHTML = '<tr><td colspan="3">Kunne ikke indlæse ranglisten.</td></tr>';
+      }
+    }
+
+    // Kør ved indlæsning
+    hentRangliste();
+  </script>
+</body>
+</html>
