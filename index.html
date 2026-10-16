@@ -182,7 +182,7 @@
       <ul>
         <li><strong>Bane-deltagelse:</strong> 10 point blot for at stille op og gennemføre kampen.</li>
         <li><strong>Vundne partier:</strong> +2 point for hvert vundet parti.</li>
-        <li><strong>Sejrs-bonus:</strong> +10 point for at vinde kampen.</li>
+        <li><strong>Sejrs-bonus:</strong> +20 point for at vinde kampen.</li>
         <li><strong>Kvalitets-bonus:</strong> +1 ekstra point pr. vundet parti mod en modstander, der har en højere
           UTR-rating end dig selv.</li>
       </ul>
@@ -206,6 +206,8 @@
   <script>
     const KAMPE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSI5joyPdSapNRkesKnxqAyC-W-3enWrXgdI3IgBqGzNA1-1RIu-3A22XRbd1ac4Y3kiBcr_08q9umT/pub?output=csv';
 
+    // Sejrsbonus (+20p)
+    const victoryBonus = 20;
     // Konstanter for UTR-beregning
     const INITIAL_UTR = 1000;
     const K_FACTOR = 32;
@@ -305,13 +307,12 @@
               if (p2UtrBefore > p1UtrBefore) p1MatchPoints += p1Games;
               if (p1UtrBefore > p2UtrBefore) p2MatchPoints += p2Games;
 
-              // Sejrsbonus (+10p)
               if (p1Sets > p2Sets) {
-                p1MatchPoints += 10;
+                p1MatchPoints += victoryBonus;
                 players[s1].wins += 1;
                 players[s2].losses += 1;
               } else if (p2Sets > p1Sets) {
-                p2MatchPoints += 10;
+                p2MatchPoints += victoryBonus;
                 players[s2].wins += 1;
                 players[s1].losses += 1;
               }
