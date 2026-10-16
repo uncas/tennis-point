@@ -50,7 +50,7 @@
     table {
       border-collapse: collapse;
       width: 100%;
-      max-width: 800px;
+      max-width: 850px;
       background: white;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
@@ -88,7 +88,7 @@
       background: white;
       padding: 20px 25px;
       border-radius: 8px;
-      max-width: 800px;
+      max-width: 850px;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
       line-height: 1.6;
     }
@@ -117,7 +117,7 @@
       border-radius: 5px;
       font-family: monospace;
       white-space: pre-wrap;
-      max-width: 800px;
+      max-width: 850px;
       display: none;
     }
   </style>
@@ -159,14 +159,15 @@
       <thead>
         <tr>
           <th>Dato</th>
-          <th>Spiller 1</th>
-          <th>Spiller 2</th>
+          <th>Spiller 1 (Point)</th>
+          <th>Spiller 2 (Point)</th>
           <th>Resultat</th>
+          <th>UTR-ændring</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td colspan="4">Henter kampe...</td>
+          <td colspan="5">Henter kampe...</td>
         </tr>
       </tbody>
     </table>
@@ -273,7 +274,9 @@
           if (!players[s1]) players[s1] = { points: 0, utr: INITIAL_UTR, wins: 0, losses: 0 };
           if (!players[s2]) players[s2] = { points: 0, utr: INITIAL_UTR, wins: 0, losses: 0 };
 
-          matches.push({ dato, s1, s2, resultat });
+          let p1MatchPoints = 0;
+          let p2MatchPoints = 0;
+          let utrChange = 0;
 
           if (resultat) {
             let p1Games = 0;
@@ -305,15 +308,12 @@
               const p1UtrBefore = players[s1].utr;
               const p2UtrBefore = players[s2].utr;
 
-              // Vælg point pr. parti ud fra antallet af spillede sæt (3 point ved <= 2 sæt, ellers 2 point ved >= 3 sæt)
               const pointsPerGame = (totalPlayedSets <= 2) ? 3 : 2;
 
               // 1. Akkumulerende Point
-              // Deltagelse (10p) + Partier (* pointsPerGame)
-              let p1MatchPoints = 10 + (p1Games * pointsPerGame);
-              let p2MatchPoints = 10 + (p2Games * pointsPerGame);
+              p1MatchPoints = 10 + (p1Games * pointsPerGame);
+              p2MatchPoints = 10 + (p2Games * pointsPerGame);
 
-              // Kvalitetsbonus (+1p pr. parti hvis modstander har højere UTR)
               if (p2UtrBefore > p1UtrBefore) p1MatchPoints += p1Games;
               if (p1UtrBefore > p2UtrBefore) p2MatchPoints += p2Games;
 
@@ -334,12 +334,22 @@
               const actualP1Share = p1Games / totalGames;
               const expectedP1Share = 1 / (1 + Math.pow(10, (p2UtrBefore - p1UtrBefore) / 400));
 
-              const utrChange = K_FACTOR * (actualP1Share - expectedP1Share);
+              utrChange = K_FACTOR * (actualP1Share - expectedP1Share);
 
               players[s1].utr += utrChange;
               players[s2].utr -= utrChange;
             }
           }
+
+          matches.push({
+            dato,
+            s1,
+            s2,
+            resultat,
+            p1MatchPoints,
+            p2MatchPoints,
+            utrChange
+          });
         });
 
         renderKampe(matches);
@@ -356,11 +366,24 @@
 
       matches.forEach(m => {
         const tr = document.createElement('tr');
+
+        // Formatér UTR-ændringen (+X.X / -X.X)
+        let utrText = '-';
+        if (m.utrChange !== 0) {
+          const p1ChangeStr = (m.utrChange > 0 ? '+' : '') + m.utrChange.toFixed(1);
+          const p2ChangeStr = (-m.utrChange > 0 ? '+' : '') + (-m.utrChange).toFixed(1);
+          utrText = `${p1ChangeStr} / ${p2ChangeStr}`;
+        }
+
+        const s1Text = m.p1MatchPoints ? `${m.s1} (${m.p1MatchPoints} p)` : m.s1;
+        const s2Text = m.p2MatchPoints ? `${m.s2} (${m.p2MatchPoints} p)` : m.s2;
+
         tr.innerHTML = `
           <td>${m.dato}</td>
-          <td>${m.s1}</td>
-          <td>${m.s2}</td>
+          <td>${s1Text}</td>
+          <td>${s2Text}</td>
           <td><strong>${m.resultat || '-'}</strong></td>
+          <td>${utrText}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -370,7 +393,6 @@
       const tbody = document.querySelector('#rangliste tbody');
       tbody.innerHTML = '';
 
-      // Sorteres efter Flest Akkumulerede Point (Sekundært UTR)
       const sortedPlayers = Object.keys(players)
         .map(name => ({ name, ...players[name] }))
         .sort((a, b) => b.points - a.points || b.utr - a.utr);
