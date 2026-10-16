@@ -181,8 +181,13 @@
       <p>Dette system belønner aktivitet og kampgejst. Hver gennemført kamp giver altid plus-point på ranglisten:</p>
       <ul>
         <li><strong>Bane-deltagelse:</strong> 10 point blot for at stille op og gennemføre kampen.</li>
-        <li><strong>Vundne partier:</strong> +2 point for hvert vundet parti.</li>
-        <li><strong>Sejrs-bonus:</strong> +20 point for at vinde kampen.</li>
+        <li><strong>Vundne partier:</strong>
+          <ul>
+            <li><strong>3 point pr. vundet parti</strong> i kampe afgjort i 2 sæt.</li>
+            <li><strong>2 point pr. vundet parti</strong> i kampe afgjort i 3 sæt (relativ tilpasning).</li>
+          </ul>
+        </li>
+        <li><strong>Sejrs-bonus:</strong> +30 point for at vinde kampen.</li>
         <li><strong>Kvalitets-bonus:</strong> +1 ekstra point pr. vundet parti mod en modstander, der har en højere
           UTR-rating end dig selv.</li>
       </ul>
@@ -206,8 +211,8 @@
   <script>
     const KAMPE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSI5joyPdSapNRkesKnxqAyC-W-3enWrXgdI3IgBqGzNA1-1RIu-3A22XRbd1ac4Y3kiBcr_08q9umT/pub?output=csv';
 
-    // Sejrsbonus (+20p)
-    const victoryBonus = 20;
+    // Sejrsbonus (+30p)
+    const victoryBonus = 30;
     // Konstanter for UTR-beregning
     const INITIAL_UTR = 1000;
     const K_FACTOR = 32;
@@ -275,6 +280,7 @@
             let p2Games = 0;
             let p1Sets = 0;
             let p2Sets = 0;
+            let totalPlayedSets = 0;
 
             const sets = resultat.split(',').map(s => s.trim());
             sets.forEach(setItem => {
@@ -286,6 +292,7 @@
                 if (!isNaN(g1) && !isNaN(g2)) {
                   p1Games += g1;
                   p2Games += g2;
+                  totalPlayedSets++;
                   if (g1 > g2) p1Sets++;
                   else if (g2 > g1) p2Sets++;
                 }
@@ -298,10 +305,13 @@
               const p1UtrBefore = players[s1].utr;
               const p2UtrBefore = players[s2].utr;
 
+              // Vælg point pr. parti ud fra antallet af spillede sæt (3 point ved <= 2 sæt, ellers 2 point ved >= 3 sæt)
+              const pointsPerGame = (totalPlayedSets <= 2) ? 3 : 2;
+
               // 1. Akkumulerende Point
-              // Deltagelse (10p) + Partier (* 2p)
-              let p1MatchPoints = 10 + (p1Games * 2);
-              let p2MatchPoints = 10 + (p2Games * 2);
+              // Deltagelse (10p) + Partier (* pointsPerGame)
+              let p1MatchPoints = 10 + (p1Games * pointsPerGame);
+              let p2MatchPoints = 10 + (p2Games * pointsPerGame);
 
               // Kvalitetsbonus (+1p pr. parti hvis modstander har højere UTR)
               if (p2UtrBefore > p1UtrBefore) p1MatchPoints += p1Games;
