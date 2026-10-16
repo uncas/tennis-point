@@ -41,6 +41,19 @@
       width: 50px;
       text-align: center;
     }
+    /* Style to make errors stand out at the bottom */
+    #error-log {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #fce4e4;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+      border-radius: 5px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-width: 600px;
+      display: none; /* Hidden by default until an error occurs */
+    }
   </style>
 </head>
 <body>
@@ -60,6 +73,9 @@
     </tbody>
   </table>
 
+  <!-- Error display container -->
+  <div id="error-log"></div>
+
   <script>
     // INDSÆT DIT PUBLICEREDE CSV-LINK HER
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSI5joyPdSapNRkesKnxqAyC-W-3enWrXgdI3IgBqGzNA1-1RIu-3A22XRbd1ac4Y3kiBcr_08q9umT/pub?output=csv';
@@ -67,6 +83,11 @@
     async function hentRangliste() {
       try {
         const response = await fetch(CSV_URL);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP-fejl! Status: ${response.status} ${response.statusText}`);
+        }
+
         const data = await response.text();
 
         // Split CSV i rækker
@@ -74,9 +95,6 @@
 
         // Fjern overskrifter (første række i arket)
         const header = rows.shift(); 
-        
-        // Sorter eventuelt efter point (antaget at Point er i kolonne 2 / index 1)
-        // rows.sort((a, b) => parseFloat(b[1]) - parseFloat(a[1]));
 
         const tbody = document.querySelector('#rangliste tbody');
         tbody.innerHTML = ''; // Tøm "Henter data..."
@@ -97,7 +115,14 @@
         });
       } catch (error) {
         console.error('Fejl ved hentning af data:', error);
+        
+        // Update table UI
         document.querySelector('#rangliste tbody').innerHTML = '<tr><td colspan="3">Kunne ikke indlæse ranglisten.</td></tr>';
+        
+        // Print error details at the bottom of the page
+        const errorLog = document.getElementById('error-log');
+        errorLog.style.display = 'block';
+        errorLog.textContent = `[DEBUG ERROR]\n${error.stack || error.toString()}`;
       }
     }
 
