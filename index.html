@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Klubbens Tennis Rangliste & Kampe</title>
+  <title>Klubbens Tennis Rangliste, Kampe & Regler</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -50,11 +50,12 @@
     table {
       border-collapse: collapse;
       width: 100%;
-      max-width: 700px;
+      max-width: 800px;
       background: white;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
       overflow: hidden;
+      margin-bottom: 20px;
     }
 
     th,
@@ -83,6 +84,30 @@
       text-align: center;
     }
 
+    .info-card {
+      background: white;
+      padding: 20px 25px;
+      border-radius: 8px;
+      max-width: 800px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      line-height: 1.6;
+    }
+
+    .info-card h2 {
+      color: #27ae60;
+      margin-top: 0;
+    }
+
+    .info-card h3 {
+      color: #2c3e50;
+      margin-top: 20px;
+      margin-bottom: 5px;
+    }
+
+    .info-card ul {
+      padding-left: 20px;
+    }
+
     #error-log {
       margin-top: 30px;
       padding: 15px;
@@ -92,7 +117,7 @@
       border-radius: 5px;
       font-family: monospace;
       white-space: pre-wrap;
-      max-width: 700px;
+      max-width: 800px;
       display: none;
     }
   </style>
@@ -105,6 +130,7 @@
   <div class="tab-container">
     <button class="tab-btn active" onclick="switchTab(event, 'rangliste-tab')">Rangliste</button>
     <button class="tab-btn" onclick="switchTab(event, 'kampe-tab')">Kampe</button>
+    <button class="tab-btn" onclick="switchTab(event, 'info-tab')">Info & Regler</button>
   </div>
 
   <!-- Tab 1: Rangliste -->
@@ -114,13 +140,14 @@
         <tr>
           <th class="rank">#</th>
           <th>Spiller</th>
-          <th>Point</th>
+          <th>Akk. Point</th>
+          <th>UTR Rating</th>
           <th>Kampe (V-T)</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td colspan="4">Beregner rangliste...</td>
+          <td colspan="5">Beregner rangliste...</td>
         </tr>
       </tbody>
     </table>
@@ -145,11 +172,43 @@
     </table>
   </div>
 
+  <!-- Tab 3: Info & Regler -->
+  <div id="info-tab" class="tab-content">
+    <div class="info-card">
+      <h2>Information & Regler for Ranglisten</h2>
+
+      <h3>1. Akkumulerende Point-System (Klubpoint)</h3>
+      <p>Dette system belønner aktivitet og kampgejst. Hver gennemført kamp giver altid plus-point på ranglisten:</p>
+      <ul>
+        <li><strong>Bane-deltagelse:</strong> 10 point blot for at stille op og gennemføre kampen.</li>
+        <li><strong>Vundne partier:</strong> +2 point for hvert vundet parti.</li>
+        <li><strong>Sejrs-bonus:</strong> +10 point for at vinde kampen.</li>
+        <li><strong>Kvalitets-bonus:</strong> +1 ekstra point pr. vundet parti mod en modstander, der har en højere
+          UTR-rating end dig selv.</li>
+      </ul>
+
+      <h3>2. UTR-Rating (Modificeret Elo per parti)</h3>
+      <p>UTR (Universal Tennis Rating) vurderer spillernes reelle styrkeniveau baseret på parti-forskellen frem for blot
+        sejr/nederlag:</p>
+      <ul>
+        <li><strong>Parti-fokus:</strong> En sejr på 6-4, 6-2 regnes som 12 vundne partier ud af 18 (67% af partierne).
+        </li>
+        <li><strong>Forventet resultat:</strong> Ratingen justeres efter, om du klarer dig bedre eller værrere end
+          forventet ud fra modstanderens rating.</li>
+        <li><strong>Udfordring:</strong> Taberen belønnes for hvert parti, de kæmper sig til mod en stærkere spiller.
+        </li>
+      </ul>
+    </div>
+  </div>
+
   <div id="error-log"></div>
 
   <script>
-    // Publiceret CSV-link til kamp-arket (Dato, Spiller 1, Spiller 2, Resultat)
     const KAMPE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSI5joyPdSapNRkesKnxqAyC-W-3enWrXgdI3IgBqGzNA1-1RIu-3A22XRbd1ac4Y3kiBcr_08q9umT/pub?output=csv';
+
+    // Konstanter for UTR-beregning
+    const INITIAL_UTR = 1000;
+    const K_FACTOR = 32;
 
     function switchTab(event, tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -159,7 +218,6 @@
       event.currentTarget.classList.add('active');
     }
 
-    // CSV parser der håndterer værdier i citationstegn (f.eks. "6-4, 6-2")
     function parseCSVLine(line) {
       const result = [];
       let current = '';
@@ -189,65 +247,90 @@
 
         const rawText = await response.text();
         const lines = rawText.trim().split(/\r?\n/);
-        lines.shift(); // Fjern overskrifter (Dato, Spiller 1, Spiller 2, Resultat)
+        lines.shift(); // Fjern overskrifter
 
         const matches = [];
-        const players = {}; // Structure: { "Navn": { point: 0, wins: 0, losses: 0 } }
+        const players = {};
 
         lines.forEach(line => {
           if (!line.trim()) return;
           const row = parseCSVLine(line);
 
           const dato = row[0] || '-';
-          const s1 = row[1];
-          const s2 = row[2];
-
-          // Fjern punktummer og ekstra mellemrum fra resultatet
+          const s1 = row[1]?.trim();
+          const s2 = row[2]?.trim();
           const resultat = (row[3] || '').replace(/\./g, '').trim();
 
           if (!s1 || !s2) return;
 
-          // Opret spillere i objektet hvis de ikke findes endnu
-          if (!players[s1]) players[s1] = { point: 0, wins: 0, losses: 0 };
-          if (!players[s2]) players[s2] = { point: 0, wins: 0, losses: 0 };
+          if (!players[s1]) players[s1] = { points: 0, utr: INITIAL_UTR, wins: 0, losses: 0 };
+          if (!players[s2]) players[s2] = { points: 0, utr: INITIAL_UTR, wins: 0, losses: 0 };
 
           matches.push({ dato, s1, s2, resultat });
 
-          // Beregn kampens vinder ud fra sætstillingen
           if (resultat) {
-            let s1Sets = 0;
-            let s2Sets = 0;
+            let p1Games = 0;
+            let p2Games = 0;
+            let p1Sets = 0;
+            let p2Sets = 0;
 
-            // Opsplit pr. sæt (f.eks. "6-4, 6-2" -> ["6-4", "6-2"])
             const sets = resultat.split(',').map(s => s.trim());
             sets.forEach(setItem => {
-              // Parse kun selve tallene fra hver side af bindestregen
               const parts = setItem.split('-');
               if (parts.length === 2) {
-                const p1Games = parseInt(parts[0].replace(/\D/g, ''), 10);
-                const p2Games = parseInt(parts[1].replace(/\D/g, ''), 10);
+                const g1 = parseInt(parts[0].replace(/\D/g, ''), 10);
+                const g2 = parseInt(parts[1].replace(/\D/g, ''), 10);
 
-                if (!isNaN(p1Games) && !isNaN(p2Games)) {
-                  if (p1Games > p2Games) s1Sets++;
-                  else if (p2Games > p1Games) s2Sets++;
+                if (!isNaN(g1) && !isNaN(g2)) {
+                  p1Games += g1;
+                  p2Games += g2;
+                  if (g1 > g2) p1Sets++;
+                  else if (g2 > g1) p2Sets++;
                 }
               }
             });
 
-            // Tildel point baseret på vundne sæt
-            if (s1Sets > s2Sets) {
-              players[s1].point += 3;
-              players[s1].wins += 1;
-              players[s2].point += 1;
-              players[s2].losses += 1;
-            } else if (s2Sets > s1Sets) {
-              players[s2].point += 3;
-              players[s2].wins += 1;
-              players[s1].point += 1;
-              players[s1].losses += 1;
+            const totalGames = p1Games + p2Games;
+
+            if (totalGames > 0) {
+              const p1UtrBefore = players[s1].utr;
+              const p2UtrBefore = players[s2].utr;
+
+              // 1. Akkumulerende Point
+              // Deltagelse (10p) + Partier (* 2p)
+              let p1MatchPoints = 10 + (p1Games * 2);
+              let p2MatchPoints = 10 + (p2Games * 2);
+
+              // Kvalitetsbonus (+1p pr. parti hvis modstander har højere UTR)
+              if (p2UtrBefore > p1UtrBefore) p1MatchPoints += p1Games;
+              if (p1UtrBefore > p2UtrBefore) p2MatchPoints += p2Games;
+
+              // Sejrsbonus (+10p)
+              if (p1Sets > p2Sets) {
+                p1MatchPoints += 10;
+                players[s1].wins += 1;
+                players[s2].losses += 1;
+              } else if (p2Sets > p1Sets) {
+                p2MatchPoints += 10;
+                players[s2].wins += 1;
+                players[s1].losses += 1;
+              }
+
+              players[s1].points += p1MatchPoints;
+              players[s2].points += p2MatchPoints;
+
+              // 2. UTR-beregning (Modified Elo)
+              const actualP1Share = p1Games / totalGames;
+              const expectedP1Share = 1 / (1 + Math.pow(10, (p2UtrBefore - p1UtrBefore) / 400));
+
+              const utrChange = K_FACTOR * (actualP1Share - expectedP1Share);
+
+              players[s1].utr += utrChange;
+              players[s2].utr -= utrChange;
             }
           }
         });
+
         renderKampe(matches);
         renderRangliste(players);
 
@@ -276,17 +359,18 @@
       const tbody = document.querySelector('#rangliste tbody');
       tbody.innerHTML = '';
 
-      // Konverter spillere til et array og sorter efter point (flest point først)
+      // Sorteres efter Flest Akkumulerede Point (Sekundært UTR)
       const sortedPlayers = Object.keys(players)
         .map(name => ({ name, ...players[name] }))
-        .sort((a, b) => b.point - a.point || b.wins - a.wins);
+        .sort((a, b) => b.points - a.points || b.utr - a.utr);
 
       sortedPlayers.forEach((p, index) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="rank">${index + 1}</td>
           <td>${p.name}</td>
-          <td><strong>${p.point}</strong></td>
+          <td><strong>${p.points} p</strong></td>
+          <td>${Math.round(p.utr)}</td>
           <td>${p.wins}-${p.losses}</td>
         `;
         tbody.appendChild(tr);
