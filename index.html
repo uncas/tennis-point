@@ -381,7 +381,7 @@
           <td class="rank">${index + 1}</td>
           <td>${p.name}</td>
           <td><strong>${p.points} p</strong></td>
-          <td>${Math.round(p.utr)}</td>
+          <td>${p.utr.toFixed(1)}</td>
           <td>${p.wins}-${p.losses}</td>
         `;
         tbody.appendChild(tr);
